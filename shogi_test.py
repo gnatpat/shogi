@@ -29,7 +29,7 @@ class MainTest(unittest.TestCase):
     board = shogi.EmptyBoard()
     shogi.SetToken(board, shogi._CHICK, shogi._PLAYER1, Point(1, 1))
 
-    boards = list(shogi.Next(board, shogi._PLAYER1))
+    boards = shogi.Next(board, shogi._PLAYER1)
 
     self.assertEqual(len(boards), 1)
     self.assertEqual(shogi.GetPiece(boards[0], Point(1, 2)), shogi._CHICK)
@@ -39,7 +39,7 @@ class MainTest(unittest.TestCase):
     board = shogi.EmptyBoard()
     shogi.SetToken(board, shogi._GIRAFFE, shogi._PLAYER1, Point(1, 1))
 
-    boards = list(shogi.Next(board, shogi._PLAYER1))
+    boards = shogi.Next(board, shogi._PLAYER1)
 
     expected_positions = [Point(1, 2), Point(1, 0), Point(0, 1), Point(2, 1)]
     expected_boards = []
@@ -54,7 +54,7 @@ class MainTest(unittest.TestCase):
     board = shogi.EmptyBoard()
     shogi.SetToken(board, shogi._ELEPHANT, shogi._PLAYER1, Point(1, 1))
 
-    boards = list(shogi.Next(board, shogi._PLAYER1))
+    boards = shogi.Next(board, shogi._PLAYER1)
 
     expected_positions = [Point(2, 2), Point(0, 2), Point(0, 0), Point(2, 0)]
     expected_boards = []
@@ -69,7 +69,7 @@ class MainTest(unittest.TestCase):
     board = shogi.EmptyBoard()
     shogi.SetToken(board, shogi._LION, shogi._PLAYER1, Point(1, 1))
 
-    boards = list(shogi.Next(board, shogi._PLAYER1))
+    boards = shogi.Next(board, shogi._PLAYER1)
 
     expected_positions = [
         Point(2, 2), Point(0, 2), Point(0, 0), Point(2, 0), 
@@ -86,7 +86,7 @@ class MainTest(unittest.TestCase):
     board = shogi.EmptyBoard()
     shogi.SetToken(board, shogi._CHICKEN, shogi._PLAYER1, Point(1, 1))
 
-    boards = list(shogi.Next(board, shogi._PLAYER1))
+    boards = shogi.Next(board, shogi._PLAYER1)
 
     expected_positions = [
         Point(2, 2), Point(0, 2), Point(1, 0), 
@@ -103,7 +103,7 @@ class MainTest(unittest.TestCase):
     board = shogi.EmptyBoard()
     shogi.SetToken(board, shogi._LION, shogi._PLAYER1, Point(0, 0))
 
-    boards = list(shogi.Next(board, shogi._PLAYER1))
+    boards = shogi.Next(board, shogi._PLAYER1)
 
     expected_positions = [Point(1, 0), Point(1, 1), Point(0, 1)]
     expected_boards = []
@@ -118,7 +118,7 @@ class MainTest(unittest.TestCase):
     board = shogi.EmptyBoard()
     shogi.SetToken(board, shogi._LION, shogi._PLAYER1, Point(2, 3))
 
-    boards = list(shogi.Next(board, shogi._PLAYER1))
+    boards = shogi.Next(board, shogi._PLAYER1)
 
     expected_positions = [Point(2, 2), Point(1, 2), Point(1, 3)]
     expected_boards = []
@@ -134,7 +134,7 @@ class MainTest(unittest.TestCase):
     shogi.SetToken(board, shogi._CHICK, shogi._PLAYER1, Point(1, 0))
     shogi.SetToken(board, shogi._GIRAFFE, shogi._PLAYER1, Point(1, 2))
 
-    boards = list(shogi.Next(board, shogi._PLAYER1))
+    boards = shogi.Next(board, shogi._PLAYER1)
 
     expected_boards = []
     expected_positions = [Point(2, 2), Point(0, 2), Point(1, 3), Point(1, 1)]
@@ -159,7 +159,7 @@ class MainTest(unittest.TestCase):
     shogi.SetToken(expected_board, shogi._CHICK, shogi._PLAYER1, Point(1, 0))
     shogi.SetToken(expected_board, shogi._CHICK, shogi._PLAYER1, Point(1, 2))
 
-    boards = list(shogi.Next(board, shogi._PLAYER1))
+    boards = shogi.Next(board, shogi._PLAYER1)
 
     self.assertEqual(len(boards), 1)
     self.assertEqual(boards[0], expected_board)
@@ -171,7 +171,7 @@ class MainTest(unittest.TestCase):
     expected_board = shogi.EmptyBoard()
     shogi.SetToken(expected_board, shogi._CHICKEN, shogi._PLAYER1, Point(1, 3))
 
-    boards = list(shogi.Next(board, shogi._PLAYER1))
+    boards = shogi.Next(board, shogi._PLAYER1)
 
     self.assertEqual(len(boards), 1)
     self.assertEqual(boards[0], expected_board)
@@ -180,7 +180,7 @@ class MainTest(unittest.TestCase):
     board = shogi.EmptyBoard()
     shogi.SetToken(board, shogi._CHICK, shogi._PLAYER2, Point(1, 2))
 
-    boards = list(shogi.Next(board, shogi._PLAYER2))
+    boards = shogi.Next(board, shogi._PLAYER2)
 
     expected_board = shogi.EmptyBoard()
     shogi.SetToken(expected_board, shogi._CHICK, shogi._PLAYER2, Point(1, 1))
@@ -193,7 +193,7 @@ class MainTest(unittest.TestCase):
     shogi.SetToken(board, shogi._CHICK, shogi._PLAYER2, Point(1, 2))
     shogi.SetToken(board, shogi._CHICK, shogi._PLAYER1, Point(1, 1))
 
-    boards = list(shogi.Next(board, shogi._PLAYER2))
+    boards = shogi.Next(board, shogi._PLAYER2)
 
     expected_board = shogi.EmptyBoard()
     shogi.SetToken(expected_board, shogi._CHICK, shogi._PLAYER2, Point(1, 1))
@@ -208,7 +208,7 @@ class MainTest(unittest.TestCase):
     shogi.SetToken(board, shogi._CHICK, shogi._PLAYER2, Point(1, 2))
     shogi.SetToken(board, shogi._CHICKEN, shogi._PLAYER1, Point(1, 1))
 
-    boards = list(shogi.Next(board, shogi._PLAYER2))
+    boards = shogi.Next(board, shogi._PLAYER2)
 
     expected_board = shogi.EmptyBoard()
     shogi.SetToken(expected_board, shogi._CHICK, shogi._PLAYER2, Point(1, 1))
@@ -240,7 +240,7 @@ class MainTest(unittest.TestCase):
     shogi.SetToken(board, shogi._CHICK, shogi._PLAYER1, Point(0, 2))
 
     self.assertTrue(shogi.IsInCheck(board, shogi._PLAYER2))
-    self.assertEqual(len(list(shogi.Next(board, shogi._PLAYER2))), 0)
+    self.assertEqual(len(shogi.Next(board, shogi._PLAYER2)), 0)
 
   def testHasWonByCheckmate(self):
     board = shogi.EmptyBoard()

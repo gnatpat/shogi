@@ -87,7 +87,8 @@ def _ToChar(token):
   return out
 
 def PrintBoard(board):
-  out = ""
+  out = "=" * (_WIDTH + 2)
+  out += "\n"
   char_board = []
   for _ in xrange(_HEIGHT):
     char_board.append([" "] * _WIDTH)
@@ -101,12 +102,18 @@ def PrintBoard(board):
       x, y = pos
       char_board[y][x] = _ToChar(token)
   out += "".join(benches[1])
-  out += "\n\n"
+  out += "\n"
+  out += "+" + "=" * _WIDTH + "+"
+  out += "\n"
   for y in reversed(xrange(_HEIGHT)):
+    out += "|"
     out += "".join(char_board[y])
-    out += "\n"
+    out += "|\n"
+  out += "+" + "=" * _WIDTH + "+"
   out += "\n"
   out += "".join(benches[0])
+  out += "\n"
+  out += "=" * (_WIDTH + 2)
   return out
 
 def IsInCheck(board, player):
@@ -118,12 +125,13 @@ def OtherPlayer(player):
   if player == _PLAYER2: return _PLAYER1
 
 def Next(board, player):
+  if _IsLionAtEnd(board, OtherPlayer(player)):
+    return []
   return filter(lambda new_board: not IsInCheck(new_board, player),
       _PossibleBoards(board, player))
 
 def HasWon(board, player):
-  return (_IsLionAtEnd(board, player) or
-          len(list(Next(board, OtherPlayer(player)))) == 0)
+  return len(list(Next(board, OtherPlayer(player)))) == 0
 
 def _PossibleBoards(board, player):
   for pos, token in board.iteritems():
@@ -185,49 +193,43 @@ def _IsValidPosition(pos):
 def _AddOffset(pos, offset):
   return Point(pos.x + offset.x, pos.y + offset.y)
 
+class Offsets:
+  N = Offset(0, 1)
+  S = Offset(0, -1)
+  E = Offset(1, 0)
+  W = Offset(-1, 0)
+  NE = Offset(1, 1)
+  NW = Offset(-1, 1)
+  SE = Offset(1, -1)
+  SW = Offset(-1, -1)
+
+_CHICK_OFFSETS = [Offsets.N]
+_GIRAFFE_OFFSETS = [Offsets.N, Offsets.E, Offsets.S, Offsets.W]
+_ELEPHANT_OFFSETS = [Offsets.NE, Offsets.NW, Offsets.SE, Offsets.SW]
+_LION_OFFSETS = [Offsets.N, Offsets.E, Offsets.S, Offsets.W, Offsets.NE, Offsets.NW, Offsets.SE, Offsets.SW]
+_CHICKEN_OFFSETS = [Offsets.N, Offsets.S, Offsets.E, Offsets.W, Offsets.NW, Offsets.NE]
+
 def _GetOffsets(piece):
   if piece == _CHICK:
-    yield Offset(0, 1)
-    return
+    return _CHICK_OFFSETS
   if piece == _GIRAFFE:
-    yield Offset(0, 1)
-    yield Offset(0, -1)
-    yield Offset(1, 0)
-    yield Offset(-1, 0)
-    return
+    return _GIRAFFE_OFFSETS
   if piece == _ELEPHANT:
-    yield Offset(1, 1)
-    yield Offset(1, -1)
-    yield Offset(-1, 1)
-    yield Offset(-1, -1)
-    return
+    return _ELEPHANT_OFFSETS
   if piece == _LION:
-    yield Offset(0, 1)
-    yield Offset(0, -1)
-    yield Offset(1, 0)
-    yield Offset(-1, 0)
-    yield Offset(1, 1)
-    yield Offset(1, -1)
-    yield Offset(-1, 1)
-    yield Offset(-1, -1)
-    return
+    return _LION_OFFSETS
   if piece == _CHICKEN:
-    yield Offset(0, 1)
-    yield Offset(0, -1)
-    yield Offset(1, 0)
-    yield Offset(-1, 0)
-    yield Offset(1, 1)
-    yield Offset(-1, 1)
-    return
+    return _CHICKEN_OFFSETS
+
+def GetLastRow(player):
+  return 3 if player == _PLAYER1 else 0
 
 def _IsLastRow(pos, player):
-  if player == _PLAYER1:
-    return pos.y == 3
-  if player == _PLAYER2:
-    return pos.y == 0
+  return pos.y == GetLastRow(player)
 
 def _DoSpecial(board, token, old_pos, possible_position):
-  if token.piece == _CHICK and _IsLastRow(possible_position, token.owner):
+  if (token.piece == _CHICK and _IsLastRow(possible_position, token.owner)
+      and not _IsOnBench(old_pos)):
     new_board = CopyBoard(board)
     ClearToken(new_board, old_pos)
     SetToken(new_board, _CHICKEN, token.owner, possible_position)
@@ -242,33 +244,17 @@ def _IsOnBench(pos):
   return pos in _PLAYER1BENCH or pos in _PLAYER2BENCH
 
 def _IsLionDead(board, player):
-  lion = _FindLion(board, player)
+  lion = FindLion(board, player)
   return not lion or _IsOnBench(lion)
 
 def _IsLionAtEnd(board, player):
-  lion = _FindLion(board, player)
+  lion = FindLion(board, player)
   return lion and _IsLastRow(lion, player)
 
-def _FindLion(board, player):
+def FindLion(board, player):
   pos_of_lion = [pos for pos, token in board.iteritems()
                   if token.owner == player and token.piece == _LION]
   if not pos_of_lion:
     return None
   return pos_of_lion[0]
 
-
-
-if __name__=="__main__":
-  board = StartingBoard()
-  player = _PLAYER1
-  steps = 0
-  while True:
-    steps += 1
-    next_boards = list(Next(board, player))
-    board = random.choice(next_boards)
-    if (HasWon(board, player)):
-      break
-    player = OtherPlayer(player)
-  print player
-  print steps
-  print(PrintBoard(board))
