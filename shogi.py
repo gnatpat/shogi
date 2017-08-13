@@ -134,6 +134,9 @@ def Next(board, player):
     return []
   return list(_PossibleBoards(board, player))
 
+def HasWon(board, player):
+  return Next(board, OtherPlayer(player)) == []
+
 def _PossibleBoards(board, player, ignore_check=False):
   for pos in _ORDER:
     for new_board, _ in _PossibleBoardsAndPos(board, player, pos, ignore_check):

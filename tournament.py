@@ -1,7 +1,7 @@
 import collections
 import itertools
 import shogi
-import shogi_player
+import shogi_ai
 import random
 
 def DoGame(player1, player2):
@@ -34,4 +34,4 @@ def Tournament(players, repetitions):
 
 if __name__=="__main__":
   random.seed(37)
-  Tournament(shogi_player.players, 1)
+  Tournament(shogi_ai.players, 1)
