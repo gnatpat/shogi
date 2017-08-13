@@ -24,8 +24,13 @@ Token = namedtuple('Token', ['piece', 'owner'])
 Point = namedtuple('Point', ['x', 'y'])
 Offset = namedtuple('Offset', ['x', 'y'])
 
+_ORDER = _PLAYER2BENCH + _PLAYER1BENCH + (
+    [Point(x, y) for x in xrange(_WIDTH) for y in xrange(_HEIGHT)])
+
 class Board(dict):
-  pass
+
+  def __hash__(self):
+    return hash(''.join(self.get(pos, ' ')[0] for pos in _ORDER))
 
 class bcolors:
   BLUE = '\033[94m'
@@ -33,7 +38,7 @@ class bcolors:
   ENDC = '\033[0m'
 
 def StartingBoard():
-  board = Board()
+  board = EmptyBoard()
   board[Point(0, 0)] = Token(_ELEPHANT, _PLAYER1)
   board[Point(1, 0)] = Token(_LION, _PLAYER1)
   board[Point(2, 0)] = Token(_GIRAFFE, _PLAYER1)
@@ -118,7 +123,7 @@ def PrintBoard(board):
 
 def IsInCheck(board, player):
   return any(map(functools.partial(_IsLionDead, player=player),
-    _PossibleBoards(board, OtherPlayer(player))))
+    _PossibleBoards(board, OtherPlayer(player), ignore_check=True)))
 
 def OtherPlayer(player):
   if player == _PLAYER1: return _PLAYER2
@@ -127,38 +132,44 @@ def OtherPlayer(player):
 def Next(board, player):
   if _IsLionAtEnd(board, OtherPlayer(player)):
     return []
-  return filter(lambda new_board: not IsInCheck(new_board, player),
-      _PossibleBoards(board, player))
+  return list(_PossibleBoards(board, player))
 
-def HasWon(board, player):
-  return len(list(Next(board, OtherPlayer(player)))) == 0
-
-def _PossibleBoards(board, player):
-  for pos, token in board.iteritems():
-    if token.owner != player:
-      continue
-    possible_positions = _GetPossiblePositions(board, token, pos)
-    for possible_position in possible_positions:
-      if IsOwnedBy(board, player, possible_position):
-        continue
-
-      new_board = CopyBoard(board)
-      if IsOwnedBy(board, OtherPlayer(player), possible_position):
-        other_token = GetToken(board, possible_position)
-        other_piece = _GetPieceAfterTaking(other_token.piece)
-        next_bench_spot = _GetNextBenchSpot(board, token.owner)
-        if next_bench_spot:
-          SetToken(new_board, other_piece, token.owner, next_bench_spot)
-
-      special = _DoSpecial(new_board, token, pos, possible_position)
-      if special:
-        yield special
-        continue
-
-      ClearToken(new_board, pos)
-      SetToken(new_board, token.piece, token.owner, possible_position)
-
+def _PossibleBoards(board, player, ignore_check=False):
+  for pos in _ORDER:
+    for new_board, _ in _PossibleBoardsAndPos(board, player, pos, ignore_check):
       yield new_board
+
+def _PossibleBoardsAndPos(board, player, pos, ignore_check=False):
+  if ignore_check==False:
+    new_boards_and_pos = filter(
+        lambda board_and_pos: not IsInCheck(board_and_pos[0], player),
+        _PossibleBoardsAndPos(board, player, pos, True))
+    for x in new_boards_and_pos:
+      yield x
+    return
+   
+  if not IsOwnedBy(board, player, pos):
+    return
+  token = GetToken(board, pos)
+  possible_positions = _GetPossiblePositions(board, token, pos)
+  for possible_position in possible_positions:
+    new_board = CopyBoard(board)
+    if IsOwnedBy(board, OtherPlayer(player), possible_position):
+      other_token = GetToken(board, possible_position)
+      other_piece = _GetPieceAfterTaking(other_token.piece)
+      next_bench_spot = _GetNextBenchSpot(board, token.owner)
+      if next_bench_spot:
+        SetToken(new_board, other_piece, token.owner, next_bench_spot)
+
+    special = _DoSpecial(new_board, token, pos, possible_position)
+    if special:
+      yield special
+      continue
+
+    ClearToken(new_board, pos)
+    SetToken(new_board, token.piece, token.owner, possible_position)
+
+    yield new_board, possible_position
 
 def _GetBench(player):
   if player == _PLAYER1: return _PLAYER1BENCH
@@ -177,9 +188,10 @@ def _GetPossiblePositions(board, token, pos):
         filter(lambda point: not IsOwnedBy(board, _PLAYER2, point), 
         (Point(x, y) for x in xrange(_WIDTH) for y in xrange(_HEIGHT))))
   offsets = _GetOffsets(token.piece)
-  return filter(_IsValidPosition,
+  return filter(lambda new_pos: not IsOwnedBy(board, token.owner, new_pos),
+      filter(_IsValidPosition,
       map(functools.partial(_AddOffset, pos), 
-      map(functools.partial(_SwitchDirectionForPlayer, token.owner), offsets)))
+      map(functools.partial(_SwitchDirectionForPlayer, token.owner), offsets))))
 
 def _SwitchDirectionForPlayer(player, offset):
   if player == _PLAYER1:
@@ -233,7 +245,7 @@ def _DoSpecial(board, token, old_pos, possible_position):
     new_board = CopyBoard(board)
     ClearToken(new_board, old_pos)
     SetToken(new_board, _CHICKEN, token.owner, possible_position)
-    return new_board
+    return new_board, possible_position
 
 def _GetPieceAfterTaking(piece):
   if piece == _CHICKEN:

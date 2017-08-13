@@ -26,6 +26,12 @@ def LionToEnd(boards, player):
 def LionToEndDeep(boards, player):
   return _Max(boards, player, 4, functools.partial(_DistanceToEnd, player=player), [])[0]
 
+def _Mix(board, player):
+  return _CountPieces(board, player) * 1 + _DistanceToEnd(board, player) * 1
+
+def Mix(boards, player):
+  return _Max(boards, player, 2, functools.partial(_Mix, player=player), [])[0]
+
 def _Max(boards, player, depth, func, parents):
   if depth == 0:
     values = [func(board) for board in boards]
@@ -52,4 +58,6 @@ def _Min(boards, player, depth, func, parents):
   min_value = min(values)
   return values.index(min_value), min_value
 
-players = [LikesMorePieces, LionToEnd, RandomShogiPlayer, TakesFirstBoard, LikesMorePiecesDeep, LionToEndDeep]
+players = [Mix, LikesMorePieces]
+#players = [LikesMorePieces, LionToEnd]
+#players = [LikesMorePieces, LionToEnd, RandomShogiPlayer, TakesFirstBoard, LikesMorePiecesDeep, LionToEndDeep]

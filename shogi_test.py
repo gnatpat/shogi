@@ -249,14 +249,22 @@ class MainTest(unittest.TestCase):
     shogi.SetToken(board, shogi._GIRAFFE, shogi._PLAYER1, Point(1, 2))
     shogi.SetToken(board, shogi._CHICK, shogi._PLAYER1, Point(0, 2))
 
-    self.assertTrue(shogi.HasWon(board, shogi._PLAYER1))
+    self.assertEqual(len(shogi.Next(board, shogi._PLAYER2)), 0)
 
   def testHasWonByReachingTheEnd(self):
     board = shogi.EmptyBoard()
     shogi.SetToken(board, shogi._LION, shogi._PLAYER2, Point(0, 0))
     shogi.SetToken(board, shogi._LION, shogi._PLAYER1, Point(0, 2))
     
-    self.assertTrue(shogi.HasWon(board, shogi._PLAYER2))
+    self.assertEqual(len(shogi.Next(board, shogi._PLAYER1)), 0)
+
+  def testCanHashBoard(self):
+    empty_board = shogi.EmptyBoard()
+    start_board = shogi.StartingBoard()
+
+    d = {empty_board: 'empty', start_board: 'start'}
+    self.assertEqual(d[empty_board], 'empty')
+    self.assertEqual(d[start_board], 'start')
 
 
 
