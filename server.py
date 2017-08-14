@@ -1,4 +1,5 @@
 import errno
+import multiprocessing
 import os
 import signal
 import socket
@@ -74,8 +75,10 @@ class Handler(object):
       print PrefixLinesWith(self.request, '(%d) >' % os.getpid())
 
     self._ParseRequest()
+
+    env = {'args': self.args, 'method': self.method, 'body': self.body}
     
-    self.data = self.callback(self.path, self.args, self.StartResponse)
+    self.data = self.callback(self.path, env, self.StartResponse)
     self._Finish()
 
   def StartResponse(self, status, response_headers):
@@ -85,9 +88,13 @@ class Handler(object):
     self.status = status
 
   def _ParseRequest(self):
-    self.method, path_and_args, self.version = (
-        self.request.splitlines()[0].rstrip('\r\n').split())
+    lines = [line.rstrip('\r\n') for line in self.request.splitlines()]
+    self.method, path_and_args, self.version = lines[0].split()
     self._ParsePathAndArgs(path_and_args)
+
+    empty = lines.index('')
+    self.body = '\n'.join(lines[(empty+1):])
+
 
   def _ParsePathAndArgs(self, path_and_args):
     path_and_args_str = path_and_args.split('?', 1)
