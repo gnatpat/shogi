@@ -1,8 +1,8 @@
 var _WIDTH = 3;
 var _HEIGHT = 4;
 
-var board;
-var turnSpan;
+var boardDiv;
+var statusSpan;
 
 var game;
 var player;
@@ -12,9 +12,10 @@ var isYourTurn;
 var clickedOn;
 
 function Loaded() {
-  board = document.getElementById('board');
-  turn_span = document.getElementById('turn');
-  CreateBoard();
+  boardDiv = document.getElementById('board');
+  statusSpan = document.getElementById('turn');
+  player = 0;
+  CreateBoard(0);
 
   document.getElementById('start-game').onclick = StartGame
 }
@@ -23,28 +24,41 @@ function MakeBoardTD(id) {
   return "<td class='board_square' id='" + id + "'></td>";
 }
 
-function CreateBoard() {
+function MakeBench(for_player) {
+  var player_as_str = (parseInt(for_player) + 1).toString();
   var content = "";
-  content += "<table id='P2Bench'><tr>"
-  content += MakeBoardTD("P1B0");
-  content += MakeBoardTD("P1B1");
-  content += MakeBoardTD("P1B2");
+  content += "<table id='P" + player_as_str + "Bench'><tr>"
+  content += MakeBoardTD("P" + player_as_str + "B0");
+  content += MakeBoardTD("P" + player_as_str + "B1");
+  content += MakeBoardTD("P" + player_as_str + "B2");
   content += "</tr></table>";
+  return content;
+}
+
+function CreateBoard() {
+  var otherPlayer = 1 - player;
+  boardDiv.innerHTML = "";
+  var content = "";
+  content += MakeBench(otherPlayer);
   content += "<table id='main-board'>";
   for (var y = 0; y < _HEIGHT; y++) {
     content += "<tr>";
     for (var x = 0; x < _WIDTH; x++) {
-      content += MakeBoardTD(x.toString() + y.toString());
+      // We need to switch the board around depending on which player is viewing it.
+      var xToUse = x;
+      var yToUse = y;
+      if (player == 0) {
+        yToUse = _HEIGHT - y - 1;
+      } else {
+        xToUse = _WIDTH - x - 1;
+      }
+      content += MakeBoardTD(xToUse.toString() + yToUse.toString());
     }
     content += "</tr>";
   }
   content += "</table>";
-  content += "<table id='P2Bench'><tr>"
-  content += MakeBoardTD("P2B0");
-  content += MakeBoardTD("P2B1");
-  content += MakeBoardTD("P2B2");
-  content += "</tr></table>";
-  board.innerHTML = content;
+  content += MakeBench(player);
+  boardDiv.innerHTML = content;
 
   AddClickEventListeners();
 }
@@ -91,11 +105,13 @@ function ClearAllBackgrounds() {
 
 
 function StartGame() {
+  statusSpan.innerHTML = "Waiting for another player...";
   var aClient = new HttpClient();
   aClient.get('start_game', function(responseStr) {
     var response = JSON.parse(responseStr);
     game = response.game;
     player = response.player;
+    CreateBoard();
     aClient.get('get_game_status' + GetArgs(), UpdateGame);
   });
 }
@@ -108,7 +124,7 @@ function UpdateGame(updateStr) {
 
   var playerStr = player == "0" ? "Player 1" : "Player 2";
   var turnStr = isYourTurn ? "Your Turn" : "Opponent's Turn";
-  turn.innerHTML = playerStr + ": " + turnStr;
+  statusSpan.innerHTML = playerStr + ": " + turnStr;
 
   ClearAllCells();
   Object.keys(update.board).forEach(function(key) {
