@@ -21,11 +21,26 @@ _PLAYER1BENCH = ["P1B" + str(i) for i in xrange(3)]
 _PLAYER2BENCH = ["P2B" + str(i) for i in xrange(3)]
 
 Token = namedtuple('Token', ['piece', 'owner'])
-Point = namedtuple('Point', ['x', 'y'])
+ExpandedPoint = namedtuple('ExpandedPoint', ['x', 'y'])
 Offset = namedtuple('Offset', ['x', 'y'])
+
+def Point(x, y):
+  return "%d%d" % (x, y)
 
 _ORDER = _PLAYER2BENCH + _PLAYER1BENCH + (
     [Point(x, y) for x in xrange(_WIDTH) for y in xrange(_HEIGHT)])
+
+def GetX(point):
+  return int(point[0])
+
+def GetY(point):
+  return int(point[1])
+
+def ToExpandedPoint(point):
+  return ExpandedPoint(GetX(point), GetY(point))
+
+def FromExpandedPoint(expanded_point):
+  return Point(expanded_point.x, expanded_point.y)
 
 class Board(dict):
 
@@ -134,6 +149,11 @@ def Next(board, player):
     return []
   return list(_PossibleBoards(board, player))
 
+def PossibleMoves(board, player):
+  return {pos: {possible: new_board 
+                for (new_board, possible) in _PossibleBoardsAndPos(board, player, pos)}
+          for pos in _ORDER}
+
 def HasWon(board, player):
   return Next(board, OtherPlayer(player)) == []
 
@@ -192,9 +212,10 @@ def _GetPossiblePositions(board, token, pos):
         (Point(x, y) for x in xrange(_WIDTH) for y in xrange(_HEIGHT))))
   offsets = _GetOffsets(token.piece)
   return filter(lambda new_pos: not IsOwnedBy(board, token.owner, new_pos),
+      map(FromExpandedPoint,
       filter(_IsValidPosition,
-      map(functools.partial(_AddOffset, pos), 
-      map(functools.partial(_SwitchDirectionForPlayer, token.owner), offsets))))
+      map(functools.partial(_AddOffset, ToExpandedPoint(pos)), 
+      map(functools.partial(_SwitchDirectionForPlayer, token.owner), offsets)))))
 
 def _SwitchDirectionForPlayer(player, offset):
   if player == _PLAYER1:
@@ -206,7 +227,7 @@ def _IsValidPosition(pos):
   return pos.x >= 0 and pos.y >= 0 and pos.x < _WIDTH and pos.y < _HEIGHT
 
 def _AddOffset(pos, offset):
-  return Point(pos.x + offset.x, pos.y + offset.y)
+  return ExpandedPoint(pos.x + offset.x, pos.y + offset.y)
 
 class Offsets:
   N = Offset(0, 1)
@@ -240,7 +261,7 @@ def GetLastRow(player):
   return 3 if player == _PLAYER1 else 0
 
 def _IsLastRow(pos, player):
-  return pos.y == GetLastRow(player)
+  return GetY(pos) == GetLastRow(player)
 
 def _DoSpecial(board, token, old_pos, possible_position):
   if (token.piece == _CHICK and _IsLastRow(possible_position, token.owner)

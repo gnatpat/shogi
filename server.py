@@ -6,20 +6,11 @@ import socket
 
 HOST, PORT = '', 8888
 
-def _GrimReaper(signum, frame):
-  while True:
-    try:
-      pid, status = os.waitpid(-1, os.WNOHANG)
-    except OSError as e:
-      return
-    if pid == 0:
-      return
-
 class Server(object):
 
   address_family = socket.AF_INET
   socket_type = socket.SOCK_STREAM
-  request_queue_size = 1
+  request_queue_size = 100
 
   def __init__(self, server_address, callback):
     self.callback = callback
@@ -35,27 +26,17 @@ class Server(object):
     self.server_port = port
 
   def ServeForever(self):
-
-    signal.signal(signal.SIGCHLD, _GrimReaper)
     while True:
-      try:
-        client_connection, client_address = self.listen_socket.accept()
-      except IOError as e:
-        code, msg = e.args
-        if code == errno.EINTR:
-          continue
-        else:
-          raise
+      client_connection, client_address = self.listen_socket.accept()
+      process = multiprocessing.Process(target=_Handle, args=(
+        self.listen_socket, client_connection, self.callback, True))
+      process.start()
+      client_connection.close()
 
-      pid = os.fork()
-      if pid == 0:
-        self.listen_socket.close()
-        handler = Handler(client_connection, self.callback, True)
-        handler.Handle()
-        client_connection.close()
-        os._exit(0)
-      else:
-        client_connection.close()
+def _Handle(listen_socket, client_connection, callback, verbose):
+  listen_socket.close()
+  handler = Handler(client_connection, callback, True)
+  handler.Handle()
 
 class Handler(object):
 
@@ -78,10 +59,10 @@ class Handler(object):
 
     env = {'args': self.args, 'method': self.method, 'body': self.body}
     
-    self.data = self.callback(self.path, env, self.StartResponse)
+    self.data = self.callback(self.path, env, self._StartResponse)
     self._Finish()
 
-  def StartResponse(self, status, response_headers):
+  def _StartResponse(self, status, response_headers):
     self.set_headers = True
     server_headers = []
     self.headers = server_headers + response_headers
