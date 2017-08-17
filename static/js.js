@@ -59,6 +59,7 @@ function CreateBoard() {
   content += "</table>";
   content += MakeBench(player);
   boardDiv.innerHTML = content;
+  ClearAllBackgrounds();
 
   AddClickEventListeners();
 }
@@ -71,7 +72,7 @@ function AddClickEventListeners() {
       if (!isYourTurn) {
         return;
       }
-      ClearAllBackgrounds()
+      ClearAllBackgrounds();
       if (clickedOn != "") {
         if (this.id in currentMoves[clickedOn]) {
           Move(clickedOn, this.id);
@@ -98,8 +99,11 @@ function ClearAllCells() {
 function ClearAllBackgrounds() {
   var board_squares = document.getElementsByClassName("board_square");
   for (var i = 0; i < board_squares.length; i++) {
-    var board_square = board_squares[i]
-    board_square.style.backgroundColor = "white";
+    var board_square = board_squares[i];
+    var x = parseInt(board_square.id[0]);
+    var y = parseInt(board_square.id[1]);
+    if ((x + y) % 2 == 0) board_square.style.backgroundColor = "#cccccc";
+    else board_square.style.backgroundColor = "#ffffff";
   }
 }
 

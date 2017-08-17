@@ -94,6 +94,7 @@ class WebServer(object):
 
   def WaitForTurn(self, game_id, player_id):
     self.board_mother_tasks.put(("wake_at_my_turn", self.worker_index, game_id, player_id))
+    # TODO(npat): timeout in ~30 seconds and clear the waking.
     ack = self.queue.get()
     return self.GetStatus(game_id, player_id)
 
