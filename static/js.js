@@ -44,7 +44,6 @@ function CreateBoard() {
   for (var y = 0; y < _HEIGHT; y++) {
     content += "<tr>";
     for (var x = 0; x < _WIDTH; x++) {
-      // We need to switch the board around depending on which player is viewing it.
       var x_to_use = x;
       var y_to_use = y;
       if (player == 0) {
