@@ -98,72 +98,78 @@ class WebServer(object):
     ack = self.queue.get()
     return self.GetStatus(game_id, player_id)
 
-
-class GameMother(object):
+class Tasker(object):
 
   def __init__(self, tasks, worker_queues):
     self.tasks = tasks
     self.worker_queues = worker_queues
+    self.functions = {}
+
+  def AddFunction(self, name, function):
+    self.functions[name] = function
+
+  def ServeForever(self):
+    while True:
+      task = self.tasks.get()
+      task_type = task[0]
+      args = task[1:]
+      if task_type not in self.functions:
+        print "Task %s not a valid task type!" % task_type
+        continue
+      self.functions[task_type](*args)
+
+
+class GameMother(Tasker):
+
+  def __init__(self, tasks, worker_queues):
+    super(GameMother, self).__init__(tasks, worker_queues)
     self.games = {}
     self.waiting = {}
+    self.AddFunction("get_state", self.GetState)
+    self.AddFunction("put_board", self.PutBoard)
+    self.AddFunction("wake_at_my_turn", self.WakeAtTurn)
 
-  def ServeForever(self):
-    while True:
-      task = self.tasks.get()
-      task_type = task[0]
-      from_worker = task[1]
-      args = task[2:]
-      print task
-      if task_type == "get_state":
-        game_id, player_id = args
-        if not game_id in self.games:
-          self.games[game_id] = shogi.Game()
-        self.worker_queues[from_worker].put(self.games[game_id])
-        continue
-      elif task_type == "put_board":
-        game_id, next_board = args
-        self.games[game_id].UpdateBoard(next_board)
-        self.worker_queues[from_worker].put(True)
+  def GetState(self, from_worker, game_id, player_id):
+    if not game_id in self.games:
+      self.games[game_id] = shogi.Game()
+    self.worker_queues[from_worker].put(self.games[game_id])
 
-        waiter = self.waiting[game_id]
-        if waiter:
-          self.worker_queues[waiter].put(True)
-          del self.waiting[game_id]
-        continue
-      elif task_type == "wake_at_my_turn":
-        game_id, player_id = args
-        game = self.games[game_id]
-        if game.player == player_id or game.is_over:
-          self.worker_queues[from_worker].put(True)
-          continue
-        if game_id in self.waiting:
-          self.worker_queues[self.waiting[game_id]].put(True)
-        self.waiting[game_id] = from_worker
-        continue
+  def PutBoard(self, from_worker, game_id, board):
+    self.games[game_id].UpdateBoard(board)
+    self.worker_queues[from_worker].put(True)
 
-class MatchMaker(object):
+    waiter = self.waiting[game_id]
+    if waiter:
+      self.worker_queues[waiter].put(True)
+      del self.waiting[game_id]
+
+  def WakeAtTurn(self, from_worker, game_id, player_id):
+    game = self.games[game_id]
+
+    if game.player == player_id or game.is_over:
+      self.worker_queues[from_worker].put(True)
+      return
+
+    if game_id in self.waiting:
+      self.worker_queues[self.waiting[game_id]].put(True)
+    self.waiting[game_id] = from_worker
+
+class MatchMaker(Tasker):
 
   def __init__(self, tasks, worker_queues):
-    self.tasks = tasks
-    self.worker_queues = worker_queues
+    super(MatchMaker, self).__init__(tasks, worker_queues)
     self.next_game_id = 0
     self.waiting = None
+    self.AddFunction('match', self.Match)
 
-  def ServeForever(self):
-    while True:
-      task = self.tasks.get()
-      task_type = task[0]
-      from_worker = task[1]
-      args = task[2:]
-      if task_type == "match":
-        if self.waiting == None:
-          self.waiting = from_worker
-          continue
-        self.worker_queues[self.waiting].put((self.next_game_id, 0))
-        self.worker_queues[from_worker].put((self.next_game_id, 1))
-        self.waiting = None
-        self.next_game_id += 1
-        continue
+  def Match(self, from_worker):
+    if self.waiting == None:
+      self.waiting = from_worker
+      return
+    self.worker_queues[self.waiting].put((self.next_game_id, 0))
+    self.worker_queues[from_worker].put((self.next_game_id, 1))
+    self.waiting = None
+    self.next_game_id += 1
 
 
 
