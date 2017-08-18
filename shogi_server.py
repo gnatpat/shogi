@@ -154,6 +154,7 @@ class GameMother(Tasker):
       self.worker_queues[self.waiting[game_id]].put(True)
     self.waiting[game_id] = from_worker
 
+
 class MatchMaker(Tasker):
 
   def __init__(self, tasks, worker_queues):
@@ -170,7 +171,6 @@ class MatchMaker(Tasker):
     self.worker_queues[from_worker].put((self.next_game_id, 1))
     self.waiting = None
     self.next_game_id += 1
-
 
 
 def SetUp():
