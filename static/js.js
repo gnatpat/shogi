@@ -1,19 +1,19 @@
 var _WIDTH = 3;
 var _HEIGHT = 4;
 
-var boardDiv;
-var statusSpan;
+var board_div;
+var status_span;
 
 var game;
 var player;
 
-var currentMoves;
-var isYourTurn;
-var clickedOn;
+var current_moves;
+var is_your_turn;
+var clicked_on = "";
 
 function Loaded() {
-  boardDiv = document.getElementById('board');
-  statusSpan = document.getElementById('turn');
+  board_div = document.getElementById('board');
+  status_span = document.getElementById('turn');
   player = 0;
   CreateBoard(0);
 
@@ -36,29 +36,29 @@ function MakeBench(for_player) {
 }
 
 function CreateBoard() {
-  var otherPlayer = 1 - player;
-  boardDiv.innerHTML = "";
+  var other_player = 1 - player;
+  board_div.innerHTML = "";
   var content = "";
-  content += MakeBench(otherPlayer);
+  content += MakeBench(other_player);
   content += "<table id='main-board'>";
   for (var y = 0; y < _HEIGHT; y++) {
     content += "<tr>";
     for (var x = 0; x < _WIDTH; x++) {
       // We need to switch the board around depending on which player is viewing it.
-      var xToUse = x;
-      var yToUse = y;
+      var x_to_use = x;
+      var y_to_use = y;
       if (player == 0) {
-        yToUse = _HEIGHT - y - 1;
+        y_to_use = _HEIGHT - y - 1;
       } else {
-        xToUse = _WIDTH - x - 1;
+        x_to_use = _WIDTH - x - 1;
       }
-      content += MakeBoardTD(xToUse.toString() + yToUse.toString());
+      content += MakeBoardTD(x_to_use.toString() + y_to_use.toString());
     }
     content += "</tr>";
   }
   content += "</table>";
   content += MakeBench(player);
-  boardDiv.innerHTML = content;
+  board_div.innerHTML = content;
   ClearAllBackgrounds();
 
   AddClickEventListeners();
@@ -69,21 +69,24 @@ function AddClickEventListeners() {
   for (var i = 0; i < board_squares.length; i++) {
     var board_square = board_squares[i]
     board_square.onclick = function() {
-      if (!isYourTurn) {
+      if (!is_your_turn) {
         return;
       }
       ClearAllBackgrounds();
-      if (clickedOn != "") {
-        if (this.id in currentMoves[clickedOn]) {
-          Move(clickedOn, this.id);
+      if (clicked_on != "") {
+        if (this.id in current_moves[clicked_on]) {
+          var from = clicked_on;
+          clicked_on = "";
+          is_your_turn = false;
+          Move(from, this.id);
           return;
         }
       }
-      var possibleMoves = currentMoves[this.id]
-      Object.keys(possibleMoves).forEach(function(pos) {
+      var possible_moves = current_moves[this.id]
+      Object.keys(possible_moves).forEach(function(pos) {
         document.getElementById(pos).style.backgroundColor = "yellow";
       });
-      clickedOn = this.id;
+      clicked_on = this.id;
     }
   }
 }
@@ -109,7 +112,7 @@ function ClearAllBackgrounds() {
 
 
 function StartGame() {
-  statusSpan.innerHTML = "Waiting for another player...";
+  status_span.innerHTML = "Waiting for another player...";
   var aClient = new HttpClient();
   aClient.get('start_game', function(responseStr) {
     var response = JSON.parse(responseStr);
@@ -123,20 +126,37 @@ function StartGame() {
 function UpdateGame(updateStr) {
   var update = JSON.parse(updateStr);
 
-  clickedOn = ""
-  isYourTurn = update.my_turn
-
-  var playerStr = player == "0" ? "Player 1" : "Player 2";
-  var turnStr = isYourTurn ? "Your Turn" : "Opponent's Turn";
-  statusSpan.innerHTML = playerStr + ": " + turnStr;
-
-  ClearAllCells();
+  ClearAllCells()
   Object.keys(update.board).forEach(function(key) {
-    var str = update.board[key][0][0] + update.board[key][1][6];
+    var str = update.board[key][0][0] + update.board[key][1];
     document.getElementById(key).innerHTML = str;
   });
-  if (isYourTurn) {
-    currentMoves = update.moves;
+
+  var player_str = player == 0 ? "Player 1" : "Player 2";
+
+  var is_game_over = (update.status == "won" ||
+                      update.status == "lost" ||
+                      update.status == "draw");
+
+  if (is_game_over) {
+    var status_str = "";
+    if (update.status == "won") {
+      status_str = "You won.";
+    } else if (update.status == "lost") {
+      status_str = "You lost.";
+    } else if (update.status == "draw") {
+      status_str = "You drew.";
+    }
+    status_span.innerHTML = player_str + ": " + status_str;
+    return;
+  }
+
+  is_your_turn = update.my_turn
+  var turn_str = is_your_turn ? "Your Turn" : "Opponent's Turn";
+  status_span.innerHTML = player_str + ": " + turn_str;
+
+  if (is_your_turn) {
+    current_moves = update.moves;
   } else {
     var aClient = new HttpClient();
     aClient.get("wait_for_my_turn" + GetArgs(), UpdateGame);

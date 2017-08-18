@@ -3,19 +3,19 @@ import functools
 import random
 
 from collections import namedtuple
+from collections import Counter
 
-_WIDTH = 3
-_HEIGHT = 4
+WIDTH = 3
+HEIGHT = 4
 
-_CHICK = "chick"
-_CHICKEN = "chicken"
-_ELEPHANT = "elephant"
-_GIRAFFE = "giraffe"
-_LION = "lion"
+CHICK = "chick"
+CHICKEN = "chicken"
+ELEPHANT = "elephant"
+GIRAFFE = "giraffe"
+LION = "lion"
 
-_PLAYER1 = "player1"
-_PLAYER2 = "player2"
-_PLAYER_TO_NUMBER = {_PLAYER1: 0, _PLAYER2: 1}
+PLAYER1 = 0
+PLAYER2 = 1
 
 _PLAYER1BENCH = ["P1B" + str(i) for i in xrange(3)]
 _PLAYER2BENCH = ["P2B" + str(i) for i in xrange(3)]
@@ -28,7 +28,7 @@ def Point(x, y):
   return "%d%d" % (x, y)
 
 _ORDER = _PLAYER2BENCH + _PLAYER1BENCH + (
-    [Point(x, y) for x in xrange(_WIDTH) for y in xrange(_HEIGHT)])
+    [Point(x, y) for x in xrange(WIDTH) for y in xrange(HEIGHT)])
 
 def GetX(point):
   return int(point[0])
@@ -47,6 +47,45 @@ class Board(dict):
   def __hash__(self):
     return hash(''.join(self.get(pos, ' ')[0] for pos in _ORDER))
 
+class PlayerStatus:
+  PLAYING = 'playing'
+  WAITING = 'waiting'
+  WON = 'won'
+  LOST = 'lost'
+  DRAW = 'draw'
+
+class Game(object):
+  
+  def __init__(self):
+    self.player = random.choice([PLAYER1, PLAYER2])
+    self.history = []
+    self.count = Counter()
+
+    self.status = {}
+    self.is_over = False
+    self.UpdateBoard(StartingBoard())
+
+  def UpdateBoard(self, board):
+    self.board = board
+    self.history.append(board)
+    self.count[board] += 1
+
+    if HasWon(board, self.player):
+      self.status[self.player] = PlayerStatus.WON
+      self.status[OtherPlayer(self.player)] = PlayerStatus.LOST
+      self.player = None
+      self.is_over = True
+      return
+    if self.count[board] == 3:
+      self.status[self.player] = PlayerStatus.DRAW
+      self.status[OtherPlayer(self.player)] = PlayerStatus.DRAW
+      return
+
+    self.player = OtherPlayer(self.player)
+    self.status[self.player] = PlayerStatus.PLAYING
+    self.status[OtherPlayer(self.player)] = PlayerStatus.WAITING
+
+
 class bcolors:
   BLUE = '\033[94m'
   RED = '\033[91m'
@@ -54,15 +93,15 @@ class bcolors:
 
 def StartingBoard():
   board = EmptyBoard()
-  board[Point(0, 0)] = Token(_ELEPHANT, _PLAYER1)
-  board[Point(1, 0)] = Token(_LION, _PLAYER1)
-  board[Point(2, 0)] = Token(_GIRAFFE, _PLAYER1)
-  board[Point(1, 1)] = Token(_CHICK, _PLAYER1)
+  board[Point(0, 0)] = Token(ELEPHANT, PLAYER1)
+  board[Point(1, 0)] = Token(LION, PLAYER1)
+  board[Point(2, 0)] = Token(GIRAFFE, PLAYER1)
+  board[Point(1, 1)] = Token(CHICK, PLAYER1)
 
-  board[Point(2, 3)] = Token(_ELEPHANT, _PLAYER2)
-  board[Point(1, 3)] = Token(_LION, _PLAYER2)
-  board[Point(0, 3)] = Token(_GIRAFFE, _PLAYER2)
-  board[Point(1, 2)] = Token(_CHICK, _PLAYER2)
+  board[Point(2, 3)] = Token(ELEPHANT, PLAYER2)
+  board[Point(1, 3)] = Token(LION, PLAYER2)
+  board[Point(0, 3)] = Token(GIRAFFE, PLAYER2)
+  board[Point(1, 2)] = Token(CHICK, PLAYER2)
 
   return board
 
@@ -95,11 +134,11 @@ def IsOwnedBy(board, owner, pos):
 
 def _ToChar(token):
   out = ""
-  if token.owner == _PLAYER1:
+  if token.owner == PLAYER1:
     out += bcolors.BLUE
   else:
     out += bcolors.RED
-  if token.piece == _CHICKEN:
+  if token.piece == CHICKEN:
     out += "C"
   else:
     out += token.piece[0]
@@ -107,11 +146,11 @@ def _ToChar(token):
   return out
 
 def PrintBoard(board):
-  out = "=" * (_WIDTH + 2)
+  out = "=" * (WIDTH + 2)
   out += "\n"
   char_board = []
-  for _ in xrange(_HEIGHT):
-    char_board.append([" "] * _WIDTH)
+  for _ in xrange(HEIGHT):
+    char_board.append([" "] * WIDTH)
   benches = [[" "] * 3, [" "] * 3]
   for pos, token in board.iteritems():
     if _IsOnBench(pos):
@@ -123,17 +162,17 @@ def PrintBoard(board):
       char_board[y][x] = _ToChar(token)
   out += "".join(benches[1])
   out += "\n"
-  out += "+" + "=" * _WIDTH + "+"
+  out += "+" + "=" * WIDTH + "+"
   out += "\n"
-  for y in reversed(xrange(_HEIGHT)):
+  for y in reversed(xrange(HEIGHT)):
     out += "|"
     out += "".join(char_board[y])
     out += "|\n"
-  out += "+" + "=" * _WIDTH + "+"
+  out += "+" + "=" * WIDTH + "+"
   out += "\n"
   out += "".join(benches[0])
   out += "\n"
-  out += "=" * (_WIDTH + 2)
+  out += "=" * (WIDTH + 2)
   return out
 
 def IsInCheck(board, player):
@@ -141,8 +180,8 @@ def IsInCheck(board, player):
     _PossibleBoards(board, OtherPlayer(player), ignore_check=True)))
 
 def OtherPlayer(player):
-  if player == _PLAYER1: return _PLAYER2
-  if player == _PLAYER2: return _PLAYER1
+  if player == PLAYER1: return PLAYER2
+  if player == PLAYER2: return PLAYER1
 
 def Next(board, player):
   if _IsLionAtEnd(board, OtherPlayer(player)):
@@ -195,8 +234,8 @@ def _PossibleBoardsAndPos(board, player, pos, ignore_check=False):
     yield new_board, possible_position
 
 def _GetBench(player):
-  if player == _PLAYER1: return _PLAYER1BENCH
-  if player == _PLAYER2: return _PLAYER2BENCH
+  if player == PLAYER1: return _PLAYER1BENCH
+  if player == PLAYER2: return _PLAYER2BENCH
 
 def _GetNextBenchSpot(board, player):
   bench = _GetBench(player)
@@ -207,9 +246,9 @@ def _GetNextBenchSpot(board, player):
 
 def _GetPossiblePositions(board, token, pos):
   if _IsOnBench(pos):
-    return filter(lambda point: not IsOwnedBy(board, _PLAYER1, point), 
-        filter(lambda point: not IsOwnedBy(board, _PLAYER2, point), 
-        (Point(x, y) for x in xrange(_WIDTH) for y in xrange(_HEIGHT))))
+    return filter(lambda point: not IsOwnedBy(board, PLAYER1, point), 
+        filter(lambda point: not IsOwnedBy(board, PLAYER2, point), 
+        (Point(x, y) for x in xrange(WIDTH) for y in xrange(HEIGHT))))
   offsets = _GetOffsets(token.piece)
   return filter(lambda new_pos: not IsOwnedBy(board, token.owner, new_pos),
       map(FromExpandedPoint,
@@ -218,13 +257,13 @@ def _GetPossiblePositions(board, token, pos):
       map(functools.partial(_SwitchDirectionForPlayer, token.owner), offsets)))))
 
 def _SwitchDirectionForPlayer(player, offset):
-  if player == _PLAYER1:
+  if player == PLAYER1:
     return offset
   return Offset(offset.x, offset.y * -1)
 
 
 def _IsValidPosition(pos):
-  return pos.x >= 0 and pos.y >= 0 and pos.x < _WIDTH and pos.y < _HEIGHT
+  return pos.x >= 0 and pos.y >= 0 and pos.x < WIDTH and pos.y < HEIGHT
 
 def _AddOffset(pos, offset):
   return ExpandedPoint(pos.x + offset.x, pos.y + offset.y)
@@ -246,34 +285,34 @@ _LION_OFFSETS = [Offsets.N, Offsets.E, Offsets.S, Offsets.W, Offsets.NE, Offsets
 _CHICKEN_OFFSETS = [Offsets.N, Offsets.S, Offsets.E, Offsets.W, Offsets.NW, Offsets.NE]
 
 def _GetOffsets(piece):
-  if piece == _CHICK:
+  if piece == CHICK:
     return _CHICK_OFFSETS
-  if piece == _GIRAFFE:
+  if piece == GIRAFFE:
     return _GIRAFFE_OFFSETS
-  if piece == _ELEPHANT:
+  if piece == ELEPHANT:
     return _ELEPHANT_OFFSETS
-  if piece == _LION:
+  if piece == LION:
     return _LION_OFFSETS
-  if piece == _CHICKEN:
+  if piece == CHICKEN:
     return _CHICKEN_OFFSETS
 
 def GetLastRow(player):
-  return 3 if player == _PLAYER1 else 0
+  return 3 if player == PLAYER1 else 0
 
 def _IsLastRow(pos, player):
   return GetY(pos) == GetLastRow(player)
 
 def _DoSpecial(board, token, old_pos, possible_position):
-  if (token.piece == _CHICK and _IsLastRow(possible_position, token.owner)
+  if (token.piece == CHICK and _IsLastRow(possible_position, token.owner)
       and not _IsOnBench(old_pos)):
     new_board = CopyBoard(board)
     ClearToken(new_board, old_pos)
-    SetToken(new_board, _CHICKEN, token.owner, possible_position)
+    SetToken(new_board, CHICKEN, token.owner, possible_position)
     return new_board, possible_position
 
 def _GetPieceAfterTaking(piece):
-  if piece == _CHICKEN:
-    return _CHICK
+  if piece == CHICKEN:
+    return CHICK
   return piece
 
 def _IsOnBench(pos):
@@ -289,7 +328,7 @@ def _IsLionAtEnd(board, player):
 
 def FindLion(board, player):
   pos_of_lion = [pos for pos, token in board.iteritems()
-                  if token.owner == player and token.piece == _LION]
+                  if token.owner == player and token.piece == LION]
   if not pos_of_lion:
     return None
   return pos_of_lion[0]

@@ -7,17 +7,13 @@ import random
 
 NUM_THREADS = 10
 
-def _NumToPlayer(num):
-  if num == 0: return shogi._PLAYER1
-  return shogi._PLAYER2
-
 class WebServer(object):
 
-  def __init__(self, worker_queues, available_workers, board_mother_tasks, 
+  def __init__(self, worker_queues, available_workers, game_mother_tasks, 
       match_making_tasks):
     self.worker_queues = worker_queues
     self.available_workers = available_workers
-    self.board_mother_tasks = board_mother_tasks
+    self.game_mother_tasks = game_mother_tasks
     self.match_making_tasks = match_making_tasks
 
   def ServeForever(self):
@@ -69,45 +65,47 @@ class WebServer(object):
     return json.dumps({'game': game_id, 'player': player_id})
 
   def GetStatus(self, game_id, player_id):
-    print "Getting status", game_id, player_id
-    self.board_mother_tasks.put(("get_state", self.worker_index, game_id, player_id))
-    board, whos_turn = self.queue.get()
+    self.game_mother_tasks.put(("get_state", self.worker_index, game_id, player_id))
+    game = self.queue.get()
+
     payload = {}
-    payload['board'] = board
-    payload['my_turn'] = player_id == whos_turn
+    payload['board'] = game.board
+    payload['status'] = game.status[player_id]
+    payload['my_turn'] = (player_id == game.player)
     if payload['my_turn']:
-      payload['moves'] = shogi.PossibleMoves(board, _NumToPlayer(player_id))
+      payload['moves'] = shogi.PossibleMoves(game.board, player_id)
     return json.dumps(payload)
 
   def Move(self, game_id, player_id, move_from, move_to):
-    self.board_mother_tasks.put(("get_state", self.worker_index, game_id, player_id))
-    board, whos_turn = self.queue.get()
-    if player_id != whos_turn:
+    self.game_mother_tasks.put(("get_state", self.worker_index, game_id, player_id))
+    game = self.queue.get()
+
+    if player_id != game.player:
       return self.GetStatus(game_id, player_id)
-    boards = shogi.PossibleMoves(board, _NumToPlayer(player_id))
+
+    boards = shogi.PossibleMoves(game.board, player_id)
     if move_to not in boards[move_from]:
       return self.GetStatus(game_id, player_id)
+
     next_board = boards[move_from][move_to]
-    self.board_mother_tasks.put(("put_board", self.worker_index, game_id, next_board, player_id))
+    self.game_mother_tasks.put(("put_board", self.worker_index, game_id, next_board))
     ack = self.queue.get()
     return self.GetStatus(game_id, player_id)
 
   def WaitForTurn(self, game_id, player_id):
-    self.board_mother_tasks.put(("wake_at_my_turn", self.worker_index, game_id, player_id))
+    self.game_mother_tasks.put(("wake_at_my_turn", self.worker_index, game_id, player_id))
     # TODO(npat): timeout in ~30 seconds and clear the waking.
     ack = self.queue.get()
     return self.GetStatus(game_id, player_id)
 
 
-class BoardMother(object):
+class GameMother(object):
 
   def __init__(self, tasks, worker_queues):
     self.tasks = tasks
     self.worker_queues = worker_queues
-    # TODO(npat): store boards as named tuple (board, player)
-    self.boards = {}
+    self.games = {}
     self.waiting = {}
-    self.next_board = 0
 
   def ServeForever(self):
     while True:
@@ -118,14 +116,15 @@ class BoardMother(object):
       print task
       if task_type == "get_state":
         game_id, player_id = args
-        if not game_id in self.boards:
-          self.boards[game_id] = (shogi.StartingBoard(), random.randint(0, 1))
-        self.worker_queues[from_worker].put(self.boards[game_id])
+        if not game_id in self.games:
+          self.games[game_id] = shogi.Game()
+        self.worker_queues[from_worker].put(self.games[game_id])
         continue
       elif task_type == "put_board":
-        game_id, next_board, by_player = args
-        self.boards[game_id] = (next_board, 1-by_player)
+        game_id, next_board = args
+        self.games[game_id].UpdateBoard(next_board)
         self.worker_queues[from_worker].put(True)
+
         waiter = self.waiting[game_id]
         if waiter:
           self.worker_queues[waiter].put(True)
@@ -133,7 +132,8 @@ class BoardMother(object):
         continue
       elif task_type == "wake_at_my_turn":
         game_id, player_id = args
-        if self.boards[game_id][1] == player_id:
+        game = self.games[game_id]
+        if game.player == player_id or game.is_over:
           self.worker_queues[from_worker].put(True)
           continue
         if game_id in self.waiting:
@@ -175,20 +175,20 @@ def SetUp():
     available_workers.put(i)
     worker_queues.append(worker_queue)
 
-  board_mother_tasks = multiprocessing.Queue()
+  game_mother_tasks = multiprocessing.Queue()
   match_making_tasks = multiprocessing.Queue()
 
-  board_mother = BoardMother(board_mother_tasks, worker_queues)
-  board_mother_process = multiprocessing.Process(
-      target=board_mother.ServeForever)
-  board_mother_process.start()
+  game_mother = GameMother(game_mother_tasks, worker_queues)
+  game_mother_process = multiprocessing.Process(
+      target=game_mother.ServeForever)
+  game_mother_process.start()
 
   match_maker = MatchMaker(match_making_tasks, worker_queues)
   match_maker_process = multiprocessing.Process(
       target=match_maker.ServeForever)
   match_maker_process.start()
 
-  web_server = WebServer(worker_queues, available_workers, board_mother_tasks,
+  web_server = WebServer(worker_queues, available_workers, game_mother_tasks,
       match_making_tasks)
   web_server.ServeForever()
   
