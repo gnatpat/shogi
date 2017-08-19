@@ -1,3 +1,4 @@
+import collections
 import errno
 import multiprocessing
 import os
@@ -5,6 +6,8 @@ import signal
 import socket
 
 HOST, PORT = '', 8888
+
+Environment = collections.namedtuple('Environment', ['args', 'method', 'body'])
 
 class Server(object):
 
@@ -57,7 +60,7 @@ class Handler(object):
 
     self._ParseRequest()
 
-    env = {'args': self.args, 'method': self.method, 'body': self.body}
+    env = Environment(args=self.args, method=self.method, body=self.body)
     
     self.data = self.callback(self.path, env, self._StartResponse)
     self._Finish()
