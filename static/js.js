@@ -4,7 +4,7 @@ var _HEIGHT = 4;
 var board_div;
 var status_span;
 
-var game;
+var player_id;
 var player;
 
 var current_moves;
@@ -115,7 +115,7 @@ function StartGame() {
   var aClient = new HttpClient();
   aClient.get('start_game', function(responseStr) {
     var response = JSON.parse(responseStr);
-    game = response.game;
+    player_id = response.player_id;
     player = response.player;
     CreateBoard();
     aClient.get('get_game_status' + GetArgs(), UpdateGame);
@@ -169,5 +169,5 @@ function Move(from, to) {
 }
 
 function GetArgs() {
-  return "?game=" + game + "&player=" + player;
+  return "?player=" + player_id;
 }
