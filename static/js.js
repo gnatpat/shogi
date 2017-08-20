@@ -150,7 +150,7 @@ function UpdateGame(updateStr) {
     return;
   }
 
-  is_your_turn = update.my_turn
+  is_your_turn = (update.current_player == player)
   var turn_str = is_your_turn ? "Your Turn" : "Opponent's Turn";
   status_span.innerHTML = player_str + ": " + turn_str;
 

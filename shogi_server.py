@@ -23,6 +23,9 @@ class ContentTypes:
   CSS = ('Content-Type', 'text/css')
   JAVASCRIPT = ('Content-Type', 'text/javascript')
 
+Player = collections.namedtuple('Player', ['order', 'is_human'])
+
+GameState = collections.namedtuple('GameState', ['game', 'players'])
 
 Address = collections.namedtuple('Address', ['section', 'index'])
 
@@ -174,23 +177,23 @@ class Handler(object):
 
   def GetStatus(self, player_id):
     GameMother.GetQueue(player_id).put(("get_state", self.address, player_id))
-    game = self.queue.get()
-    GameMother.GetQueue(player_id).put(("get_player", self.address, player_id))
-    player = self.queue.get()
+    state = self.queue.get()
+    game = state.game
+    player = state.players[player_id].order
 
     payload = {}
     payload['board'] = game.board
     payload['status'] = game.status[player]
-    payload['my_turn'] = (player == game.player)
-    if payload['my_turn']:
+    payload['current_player'] = game.player
+    if game.player == player:
       payload['moves'] = shogi.PossibleMoves(game.board, player)
     return json.dumps(payload)
 
   def Move(self, player_id, move_from, move_to):
     GameMother.GetQueue(player_id).put(("get_state", self.address, player_id))
-    game = self.queue.get()
-    GameMother.GetQueue(player_id).put(("get_player", self.address, player_id))
-    player = self.queue.get()
+    state = self.queue.get()
+    game = state.game
+    player = state.players[player_id].order
 
     if player != game.player:
       return self.GetStatus(player_id)
@@ -238,57 +241,55 @@ class GameMother(Tasker):
 
   def __init__(self):
     super(GameMother, self).__init__()
-    self.games = []
-    self.player_to_index = {}
+    self.game_states = {}
     self.waiting = collections.defaultdict(list)
     self.AddFunction("get_state", self.GetState)
-    self.AddFunction("get_player", self.GetPlayer)
     self.AddFunction("put_board", self.PutBoard)
     self.AddFunction("wake_at_my_turn", self.WakeAtTurn)
     self.AddFunction("new_board", self.NewBoard)
 
   def GetState(self, caller, player_id):
-    if not player_id in self.player_to_index:
+    if not player_id in self.game_states:
       Connections.Get(caller).put(False)
       return
-    game = self.games[self.player_to_index[player_id][0]]
-    Connections.Get(caller).put(game)
-
-  def GetPlayer(self, caller, player_id):
-    if not player_id in self.player_to_index:
-      Connections.Get(caller).put(False)
-      return
-    player = self.player_to_index[player_id][1]
-    Connections.Get(caller).put(player)
+    state = self.game_states[player_id]
+    Connections.Get(caller).put(state)
 
   def PutBoard(self, caller, player_id, board):
-    game_index = self.player_to_index[player_id][0]
-    game = self.games[game_index]
+    game = self.game_states[player_id].game
     game.UpdateBoard(board)
     Connections.Get(caller).put(True)
 
-    waiters = self.waiting[game_index]
+    waiters = self.waiting[player_id]
     for waiter in waiters:
       Connections.Get(waiter).put(True)
-    del self.waiting[game_index]
+    del self.waiting[player_id]
 
   def WakeAtTurn(self, caller, player_id):
-    game_index, player = self.player_to_index[player_id]
-    game = self.games[game_index]
+    state = self.game_states[player_id]
+    game = state.game
+    player = state.players[player_id]
 
     if game.player == player or game.is_over:
       Connections.Get(caller).put(True)
       return
 
-    self.waiting[game_index].append(caller)
+    players = state.players
+    for other_player_id in players.keys():
+      if other_player_id != player_id:
+        self.waiting[other_player_id].append(caller)
 
   def NewBoard(self, caller):
     player_1_id = random.getrandbits(32) * self.num_instances + self.address.index
     player_2_id = random.getrandbits(32) * self.num_instances + self.address.index
-    index = len(self.games)
-    self.games.append(shogi.Game())
-    self.player_to_index[player_1_id] = (index, 0)
-    self.player_to_index[player_2_id] = (index, 1)
+
+    game = shogi.Game()
+    players = {player_1_id: Player(shogi.PLAYER1, True), 
+               player_2_id: Player(shogi.PLAYER2, True)}
+    state = GameState(game, players)
+
+    self.game_states[player_1_id] = state
+    self.game_states[player_2_id] = state
     Connections.Get(caller).put((player_1_id, player_2_id))
 
 
@@ -309,8 +310,8 @@ class MatchMaker(Tasker):
     GameMother.GetAnyQueue().put(('new_board', temp_address))
     player_1_id, player_2_id = temp_queue.get()
     Connections.Done(temp_address)
-    Connections.Get(self.waiting).put((player_1_id, 0))
-    Connections.Get(caller).put((player_2_id, 1))
+    Connections.Get(self.waiting).put((player_1_id, shogi.PLAYER1))
+    Connections.Get(caller).put((player_2_id, shogi.PLAYER2))
     self.waiting = None
 
 
