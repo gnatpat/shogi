@@ -8,7 +8,7 @@ import shogi
 import shogi_ai
 import random
 
-NUM_THREADS = 10
+NUM_THREADS = 20
 
 
 class Sections:
@@ -230,13 +230,10 @@ class Handler(object):
     GameMother.GetQueue(player_id).put(("get_state", self.address, player_id))
     state = self.queue.get()
     current_player = state.game.player
-    print state
     for other_player_id, player in state.players.iteritems():
-      print other_player_id, player, current_player
       if player.is_human or player.order != current_player:
         continue
       ai_address, ai_queue = Connections.Obtain(Sections.WORKER)
-      print "Doing AI turn"
       process = multiprocessing.Process(
           target=DoAITurn, args=(ai_address, ai_queue, other_player_id))
       process.start()
@@ -352,9 +349,7 @@ def DoAITurn(address, queue, player_id):
   assert state.players[player_id].order == state.game.player
 
   possible_boards = shogi.Next(state.game.board, state.game.player)
-  print "Thinking..."
   board_chosen = shogi_ai.Mix(possible_boards, state.game.player) 
-  print "Chosen ", board_chosen
   new_board = possible_boards[board_chosen]
 
   GameMother.GetQueue(player_id).put(('put_board', address, player_id, new_board))
@@ -370,7 +365,7 @@ def SetUp():
 
   MatchMaker.SpawnAll()
   GameMother.SpawnAll()
-  server.Server(('', 8008), _EntryPoint).ServeForever()
+  server.Server(('', 8008), _EntryPoint).ServeForever(True)
 
 if __name__=="__main__":
   SetUp()

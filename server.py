@@ -104,7 +104,10 @@ class Handler(object):
     response += contents
 
     if self.verbose:
-      print PrefixLinesWith(response, '(%d) <' % os.getpid())
+      content = response
+      if self.path.endswith(".png"):
+        content = "BINARY FILE: %s" % self.path
+      print PrefixLinesWith(content, '(%d) <' % os.getpid())
 
     try:
       self.client_connection.sendall(response)

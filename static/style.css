@@ -9,9 +9,17 @@
   /* Yay CSS! */
   height: 61px;
   padding: 5px;
+  user-select: none;
 }
 
 #main-board {
   margin-top: 10px;
   margin-bottom: 10px;
+}
+
+#img-hidden {
+  position: absolute;
+  pointer-events: none;
+  top:5px;
+  left: 10px;
 }

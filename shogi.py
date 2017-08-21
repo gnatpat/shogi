@@ -189,9 +189,13 @@ def Next(board, player):
   return list(_PossibleBoards(board, player))
 
 def PossibleMoves(board, player):
-  return {pos: {possible: new_board 
-                for (new_board, possible) in _PossibleBoardsAndPos(board, player, pos)}
-          for pos in _ORDER}
+  moves = {}
+  for pos in _ORDER:
+    boards_and_pos = list(_PossibleBoardsAndPos(board, player, pos))
+    if not boards_and_pos:
+      continue
+    moves[pos] = {possible: new_board for (new_board, possible) in boards_and_pos}
+  return moves
 
 def HasWon(board, player):
   return Next(board, OtherPlayer(player)) == []

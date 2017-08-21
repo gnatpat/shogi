@@ -1,3 +1,4 @@
+(function() {
 var _WIDTH = 3;
 var _HEIGHT = 4;
 
@@ -7,9 +8,14 @@ var status_span;
 var player_id;
 var player;
 
+var board;
 var current_moves;
 var is_your_turn;
 var clicked_on = "";
+var holding = "";
+var holding_img = "";
+
+window.onload = Loaded
 
 function Loaded() {
   board_div = document.getElementById('board');
@@ -76,26 +82,74 @@ function CreateBoard() {
 function AddClickEventListeners() {
   var board_squares = document.getElementsByClassName("board_square");
   for (var i = 0; i < board_squares.length; i++) {
-    var board_square = board_squares[i]
-    board_square.onclick = function() {
+    var board_square = board_squares[i];
+    board_square.onmousedown = function(e) {
       if (!is_your_turn) {
         return;
       }
+      old_clicked_on = clicked_on;
+      clicked_on = "";
       ClearAllBackgrounds();
-      if (clicked_on != "") {
-        if (this.id in current_moves[clicked_on]) {
-          var from = clicked_on;
-          clicked_on = "";
+      if (old_clicked_on != "") {
+        if (this.id in current_moves[old_clicked_on]) {
+          var from = old_clicked_on;
           is_your_turn = false;
           Move(from, this.id);
           return;
         }
       }
+      if (!(this.id in current_moves)) {
+        return;
+      }
       var possible_moves = current_moves[this.id]
       Object.keys(possible_moves).forEach(function(pos) {
         document.getElementById(pos).style.backgroundColor = "yellow";
       });
-      clicked_on = this.id;
+      if (this.id in current_moves) {
+        holding = this.id;
+        holding_img = this.innerHTML;
+        this.innerHTML = "";
+        document.getElementById('hidden').innerHTML = 
+          TokenToImgTag(board[this.id], "hidden");
+        document.getElementById("img-hidden").style.left = e.clientX - 25;
+        document.getElementById("img-hidden").style.top = e.clientY - 25;
+      }
+    }
+    board_square.onmouseup = function(e) {
+      if (!is_your_turn) {
+        return;
+      }
+      if (holding == "") {
+        return;
+      }
+      document.getElementById(holding).innerHTML = holding_img;
+      document.getElementById('hidden').innerHTML = "";
+      was_holding = holding;
+      holding = "";
+      if (this.id == was_holding) {
+        clicked_on = this.id;
+        return
+      }
+      ClearAllBackgrounds();
+      if (this.id in current_moves[was_holding]) {
+        var from = was_holding;
+        is_your_turn = false;
+        Move(from, this.id);
+        return;
+      }
+    }
+  }
+  document.body.onmousemove = function(e) {
+    if (holding !== "") {
+      document.getElementById("img-hidden").style.left = e.clientX - 25;
+      document.getElementById("img-hidden").style.top = e.clientY - 25;
+    }
+  }
+  document.body.onmouseup = function(e) {
+    if (holding != "") {
+      document.getElementById(holding).innerHTML = holding_img;
+      document.getElementById('hidden').innerHTML = "";
+      holding = "";
     }
   }
 }
@@ -146,14 +200,16 @@ function TokenToImage(token) {
   return "img/" + token[0] + "_" + up_or_down + ".png";
 }
 
-function TokenToImgTag(token) {
-  return "<img width=50 height=50 src='" + TokenToImage(token) + "'/>";
+function TokenToImgTag(token, id) {
+  return "<img draggable=false width=50 height=50 " +
+    "src='" + TokenToImage(token) + "' + id='img-" + id + "'/>";
 }
 
-function UpdateBoard(board) {
+function UpdateBoard(new_board) {
+  board = new_board
   ClearAllCells()
   Object.keys(board).forEach(function(key) {
-    document.getElementById(key).innerHTML = TokenToImgTag(board[key]);
+    document.getElementById(key).innerHTML = TokenToImgTag(board[key], key);
   });
 }
 
@@ -204,3 +260,5 @@ function Move(from, to) {
 function GetArgs() {
   return "?player=" + player_id;
 }
+
+})();
