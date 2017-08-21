@@ -17,7 +17,17 @@ function Loaded() {
   player = 0;
   CreateBoard(0);
 
-  document.getElementById('start-game').onclick = StartGame
+  document.getElementById('start-game').onclick = StartHumanGame
+  document.getElementById('start-ai-game').onclick = StartAIGame
+
+  var last_player_id = getCookie('player_id');
+  if (last_player_id != "") {
+    player_id = last_player_id;
+    player = getCookie('player');
+    CreateBoard();
+    var client = new HttpClient();
+    client.get('get_game_status' + GetArgs(), UpdateGame);
+  }
 }
 
 function MakeBoardTD(id) {
@@ -109,27 +119,49 @@ function ClearAllBackgrounds() {
   }
 }
 
+function StartHumanGame() {
+  StartGame('start_game')
+}
 
-function StartGame() {
+function StartAIGame() {
+  StartGame('start_ai_game')
+}
+
+function StartGame(url) {
   status_span.innerHTML = "Waiting for another player...";
   var aClient = new HttpClient();
-  aClient.get('start_game', function(responseStr) {
+  aClient.get(url, function(responseStr) {
     var response = JSON.parse(responseStr);
     player_id = response.player_id;
     player = response.player;
+    setCookie('player_id', player_id)
+    setCookie('player', player)
     CreateBoard();
     aClient.get('get_game_status' + GetArgs(), UpdateGame);
   });
 }
 
+function TokenToImage(token) {
+  var up_or_down = (token[1] == player ? "up" : "down");
+  return "img/" + token[0] + "_" + up_or_down + ".png";
+}
+
+function TokenToImgTag(token) {
+  return "<img width=50 height=50 src='" + TokenToImage(token) + "'/>";
+}
+
+function UpdateBoard(board) {
+  ClearAllCells()
+  Object.keys(board).forEach(function(key) {
+    document.getElementById(key).innerHTML = TokenToImgTag(board[key]);
+  });
+}
+
+
 function UpdateGame(updateStr) {
   var update = JSON.parse(updateStr);
 
-  ClearAllCells()
-  Object.keys(update.board).forEach(function(key) {
-    var str = update.board[key][0][0] + update.board[key][1];
-    document.getElementById(key).innerHTML = str;
-  });
+  UpdateBoard(update.board)
 
   var player_str = player == 0 ? "Player 1" : "Player 2";
 
@@ -163,6 +195,7 @@ function UpdateGame(updateStr) {
 }
 
 function Move(from, to) {
+  UpdateBoard(current_moves[from][to])
   var aClient = new HttpClient();
   aClient.get('move' + GetArgs() + '&from=' + from + '&to=' + to,
       UpdateGame);

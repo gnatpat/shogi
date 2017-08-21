@@ -5,6 +5,7 @@ import multiprocessing
 import os
 import server
 import shogi
+import shogi_ai
 import random
 
 NUM_THREADS = 10
@@ -14,6 +15,7 @@ class Sections:
   WORKER = "worker"
   MATCH_MAKER = "match_maker"
   GAME_MOTHER = "game_mother"
+  AI_MOTHER = "ai_mother"
 
 
 class ContentTypes:
@@ -153,6 +155,9 @@ class Handler(object):
     if self.path=="start_game": 
       return self.StartGame()
 
+    if self.path=="start_ai_game":
+      return self.StartAIGame()
+
     if self.path=="get_game_status":
       player_id = int(self.env.args['player'])
       return self.GetStatus(player_id)
@@ -173,6 +178,13 @@ class Handler(object):
     MatchMaker.GetAnyQueue().put(("match", self.address))
     player_id, player = self.queue.get()
     payload = {'player_id': player_id, 'player': player }
+    return json.dumps(payload)
+
+  def StartAIGame(self):
+    GameMother.GetAnyQueue().put(("new_board", self.address, [True, False]))
+    player_id, ai_player_id = self.queue.get()
+    payload = {'player_id': player_id, 'player': shogi.PLAYER1 }
+    self._DoAITurnIfNeeded(player_id)
     return json.dumps(payload)
 
   def GetStatus(self, player_id):
@@ -205,6 +217,7 @@ class Handler(object):
     next_board = boards[move_from][move_to]
     GameMother.GetQueue(player_id).put(("put_board", self.address, player_id, next_board))
     ack = self.queue.get()
+    self._DoAITurnIfNeeded(player_id)
     return self.GetStatus(player_id)
 
   def WaitForTurn(self, player_id):
@@ -212,6 +225,21 @@ class Handler(object):
     # TODO(npat): timeout in ~30 seconds and clear the waking.
     ack = self.queue.get()
     return self.GetStatus(player_id)
+
+  def _DoAITurnIfNeeded(self, player_id):
+    GameMother.GetQueue(player_id).put(("get_state", self.address, player_id))
+    state = self.queue.get()
+    current_player = state.game.player
+    print state
+    for other_player_id, player in state.players.iteritems():
+      print other_player_id, player, current_player
+      if player.is_human or player.order != current_player:
+        continue
+      ai_address, ai_queue = Connections.Obtain(Sections.WORKER)
+      print "Doing AI turn"
+      process = multiprocessing.Process(
+          target=DoAITurn, args=(ai_address, ai_queue, other_player_id))
+      process.start()
 
   def ReadFile(self):
     if self.path == '':
@@ -268,7 +296,7 @@ class GameMother(Tasker):
   def WakeAtTurn(self, caller, player_id):
     state = self.game_states[player_id]
     game = state.game
-    player = state.players[player_id]
+    player = state.players[player_id].order
 
     if game.player == player or game.is_over:
       Connections.Get(caller).put(True)
@@ -279,13 +307,16 @@ class GameMother(Tasker):
       if other_player_id != player_id:
         self.waiting[other_player_id].append(caller)
 
-  def NewBoard(self, caller):
+  def NewBoard(self, caller, human_or_ai=None):
+    if not human_or_ai:
+      human_or_ai = [True, True]
+
     player_1_id = random.getrandbits(32) * self.num_instances + self.address.index
     player_2_id = random.getrandbits(32) * self.num_instances + self.address.index
 
     game = shogi.Game()
-    players = {player_1_id: Player(shogi.PLAYER1, True), 
-               player_2_id: Player(shogi.PLAYER2, True)}
+    players = {player_1_id: Player(shogi.PLAYER1, human_or_ai[0]), 
+               player_2_id: Player(shogi.PLAYER2, human_or_ai[1])}
     state = GameState(game, players)
 
     self.game_states[player_1_id] = state
@@ -313,6 +344,23 @@ class MatchMaker(Tasker):
     Connections.Get(self.waiting).put((player_1_id, shogi.PLAYER1))
     Connections.Get(caller).put((player_2_id, shogi.PLAYER2))
     self.waiting = None
+
+
+def DoAITurn(address, queue, player_id):
+  GameMother.GetQueue(player_id).put(('get_state', address, player_id))
+  state = queue.get()
+  assert state.players[player_id].order == state.game.player
+
+  possible_boards = shogi.Next(state.game.board, state.game.player)
+  print "Thinking..."
+  board_chosen = shogi_ai.Mix(possible_boards, state.game.player) 
+  print "Chosen ", board_chosen
+  new_board = possible_boards[board_chosen]
+
+  GameMother.GetQueue(player_id).put(('put_board', address, player_id, new_board))
+  queue.get()
+  Connections.Done(address)
+
 
 
 def SetUp():

@@ -28,17 +28,17 @@ class Server(object):
     self.server_name = socket.getfqdn(host)
     self.server_port = port
 
-  def ServeForever(self):
+  def ServeForever(self, verbose=False):
     while True:
       client_connection, client_address = self.listen_socket.accept()
       process = multiprocessing.Process(target=_Handle, args=(
-        self.listen_socket, client_connection, self.callback, True))
+        self.listen_socket, client_connection, self.callback, verbose))
       process.start()
       client_connection.close()
 
 def _Handle(listen_socket, client_connection, callback, verbose):
   listen_socket.close()
-  handler = Handler(client_connection, callback, True)
+  handler = Handler(client_connection, callback, verbose)
   handler.Handle()
 
 class Handler(object):

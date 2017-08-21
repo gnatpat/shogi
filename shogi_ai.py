@@ -18,7 +18,7 @@ def LikesMorePiecesDeep(boards, player):
   return _Max(boards, player, 4, functools.partial(_CountPieces, player=player), [])[0]
 
 def _DistanceToEnd(board, player):
-  return -1 * abs(shogi.GetLastRow(player) - shogi.FindLion(board, player).y)
+  return -1 * abs(shogi.GetLastRow(player) - shogi.GetY(shogi.FindLion(board, player)))
 
 def LionToEnd(boards, player):
   return _Max(boards, player, 2, functools.partial(_DistanceToEnd, player=player), [])[0]
