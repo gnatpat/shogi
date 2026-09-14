@@ -1,0 +1,13 @@
+# Deployment config for npd — https://github.com/gnatpat/npd
+
+[app]
+name = "shogi"
+
+[service]
+start = "python2.7 shogi_server.py"
+health_path = "/"
+sandbox = true
+
+[nginx]
+path = "/shogi/"
+strip_prefix = true
