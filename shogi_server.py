@@ -242,8 +242,8 @@ class Handler(object):
     if self.path == '':
       self.path = 'index.html'
 
-    file_path = 'static/' + self.path
-    if os.path.isfile(file_path):
+    file_path = os.path.normpath('static/' + self.path)
+    if file_path.startswith('static/') and os.path.isfile(file_path):
       if file_path.endswith(".html"): self.content_type = ContentTypes.HTML
       if file_path.endswith(".css"): self.content_type = ContentTypes.CSS
       if file_path.endswith(".js"): self.content_type = ContentTypes.JAVASCRIPT
@@ -365,7 +365,7 @@ def SetUp():
 
   MatchMaker.SpawnAll()
   GameMother.SpawnAll()
-  server.Server(('', 8008), _EntryPoint).ServeForever(True)
+  server.Server(('127.0.0.1', int(os.environ.get('PORT', 8008))), _EntryPoint).ServeForever(True)
 
 if __name__=="__main__":
   SetUp()
